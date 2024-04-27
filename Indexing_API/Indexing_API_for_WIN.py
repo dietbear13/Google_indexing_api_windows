@@ -33,7 +33,7 @@ def send_pages_to_index(data, key, log_file):
         response, content = http.request(ENDPOINT, method="POST", body=json.dumps(urls))
         now = datetime.now().strftime("%H:%M:%S")
 
-        time.sleep(1)
+        time.sleep(0.3)
 
         if response['status'] != '200':
             print(f"{date.today()} - {now},  ошибка, {now}, ключ {key} - код ответа {response['status']}")
@@ -41,7 +41,7 @@ def send_pages_to_index(data, key, log_file):
             break
 
         else:
-            log_line = f"{date.today()} - {now}, страница {url} - успешно, код {response['status']}"
+            log_line = f"{date.today()} - {now}, ключ {key}, страница {url} - успешно, код {response['status']}"
             print(log_line)
             log_file.write(log_line + '\n')
 
@@ -54,10 +54,9 @@ def send_pages_to_index(data, key, log_file):
     return sent_urls_for_recrawl_set
 
 
-def delete_sent_urls_and_export_new_table(main_urls_set, sent_urls_for_index_set):
-    main_urls_set_without_sent_urls = main_urls_set - sent_urls_for_index_set
-    rest_urls_list = list(main_urls_set_without_sent_urls)
-    data = pd.DataFrame({'urls': rest_urls_list})
+def delete_sent_urls_and_export_new_table(data, sent_urls_for_recrawl_set):
+    data.drop(index=data[data['urls'].isin(sent_urls_for_recrawl_set)].index, inplace=True)
+
     export_data_to_excel(data)
 
 
@@ -66,8 +65,10 @@ def send_pages_to_google(data, key_column_index, key, log_file):
 
     main_urls_set = set(data.iloc[:, key_column_index].to_list())
     sent_urls_for_recrawl_set = send_pages_to_index(main_urls_set, key, log_file)
-    delete_sent_urls_and_export_new_table(main_urls_set, sent_urls_for_recrawl_set)
-    log_file.write(f"{date.today()} - {now}, адрес отправлен на переобход и удален из таблицы исходной\n")
+
+    delete_sent_urls_and_export_new_table(data, sent_urls_for_recrawl_set)
+
+    log_file.write(f"{date.today()} - {now}, ключ {key} адрес отправлен на переобход и удален из таблицы исходной\n")
 
 
 def error_report(log_file):
@@ -112,7 +113,7 @@ def main():
                 send_pages_to_google(table_with_urls_for_recrawl, key_column_index, key, log_file)
             except Exception:
                 error_report(log_file)
-                print(f"Exception в функиции отправки запроса ~109 строка: {error_report(log_file)}")
+                print(f"Exception в функции отправки запроса ~120 строка: {error_report(log_file)}")
 
         total_requests_count = sum(request_counters.values())
         log_file.write(
